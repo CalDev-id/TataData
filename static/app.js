@@ -832,7 +832,7 @@ function showRetry() {
   elements.fileInput.disabled = false;
   elements.modelSelect.disabled = false;
   elements.progressBox.hidden = true;
-  stopElapsed();
+  if (!["queued", "running"].includes(state.normalizationStatus)) stopElapsed();
 }
 
 async function responseDetail(response) {
@@ -969,7 +969,13 @@ function updateCombinedProgress() {
     elements.completionMeta.textContent = `Durasi proses: ${elements.elapsedTime.textContent}`;
     return;
   }
-  if (status === "completed" && state.normalizationStatus === "failed") {
+  if (status === "failed") {
+    if (state.normalizationReady || state.normalizationStatus === "failed") stopElapsed();
+    const normalizationLabel = state.normalizationReady ? "selesai"
+      : state.normalizationStatus === "failed" ? "gagal"
+      : state.normalizationStatus === "running" ? "berjalan" : "antre";
+    elements.statusText.textContent = `Audit gagal · Normalisasi ${normalizationLabel}`;
+  } else if (status === "completed" && state.normalizationStatus === "failed") {
     stopElapsed();
     elements.statusText.textContent = "Normalisasi gagal · Coba lagi";
   } else if (state.normalizationStatus === "failed") {
@@ -990,6 +996,9 @@ function updateCombinedProgress() {
 
 function updateProgress(job) {
   updateAuditProcessLog(job.process_events);
+  if (state.normalizationStatus === "idle" && job.status !== "completed") {
+    state.normalizationStatus = "queued";
+  }
   state.auditProgress = {
     status: job.status,
     completed: job.completed_batches || 0,
@@ -1159,7 +1168,7 @@ async function checkStatus(statusUrl, requestId = state.auditRequestId) {
     showRetry();
     elements.progressBox.hidden = false;
     elements.progressBox.classList.add("is-error");
-    elements.statusText.textContent = "Audit tidak selesai.";
+    updateCombinedProgress();
     elements.auditRetryButton.hidden = !job.retry_available;
     return;
   }
@@ -2108,7 +2117,7 @@ if (pendingUrl) {
     state.restoringWorkflow = true;
     state.dictionaryElapsedMs = Math.max(0, Number(state.savedWorkflow.dictionaryElapsedMs) || 0);
     updateDictionaryElapsed();
-    if (["telkom", "gemini", "gpt_setneg", "nutaraline"].includes(state.savedWorkflow.model)) {
+    if (["gpt_setneg", "nutaraline"].includes(state.savedWorkflow.model)) {
       elements.modelSelect.value = state.savedWorkflow.model;
     }
   } else {

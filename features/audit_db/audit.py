@@ -1,6 +1,6 @@
-from shared.llm import gpt_runtime
+import json
 
-async def audit_db():
+def audit_db(ddl_batch, database_name, table_names, check_database, runtime):
     system_prompt = """Anda adalah Senior Database Administrator (DBA) Auditor. Audit setiap tabel, kolom, constraint, dan view pada SQL DDL terhadap seluruh checklist berikut. Hasil harus lengkap, akurat, spesifik, dan dapat digunakan untuk perbaikan.
 
     PRINSIP AUDIT
@@ -108,13 +108,11 @@ async def audit_db():
     hanya untuk temuan tingkat database saat periksa_database bernilai true. 
     """.strip()
 
-    response = gpt_runtime.generate_response(system_prompt, user_prompt)
-
-    if response:
-        job_authorities = response.strip()
-        job_authorities = job_authorities.replace("- ", "• ")
-        job_authorities = job_authorities.replace("'", "").replace("[", "").replace("]", "")
-
-        return job_authorities
-    else:
-        return "Tidak ada respons dari AI."
+    input_data = {
+        "nama_database": database_name,
+        "semua_nama_tabel_database": table_names,
+        "batch_pertama": True,
+        "periksa_database": check_database,
+        "ddl": ddl_batch,
+    }
+    return runtime.generate_response(system_prompt, user_prompt + "\n" + json.dumps(input_data, ensure_ascii=False))

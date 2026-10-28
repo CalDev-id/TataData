@@ -19,7 +19,7 @@ def generate_response(system_prompt: str, user_prompt: str) -> str:
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt},
         ],
-        "max_tokens": 8192,
+        "max_tokens": 32768,
     }
     request = Request(
         "https://nutaraline.co.uk/v1/chat/completions",
@@ -27,23 +27,28 @@ def generate_response(system_prompt: str, user_prompt: str) -> str:
         headers={
             "Authorization": f"Bearer {api_key}",
             "Content-Type": "application/json",
+            "User-Agent": "TataData/1.0",
         },
         method="POST",
     )
 
     try:
-        with urlopen(request, timeout=120) as response:
+        with urlopen(request, timeout=600) as response:
             result = json.load(response)
     except HTTPError as exc:
+        body = exc.read().decode("utf-8", "replace")
         try:
-            message = json.load(exc).get("error", {}).get("message", exc.reason)
+            message = json.loads(body).get("error", {}).get("message", exc.reason)
         except (ValueError, AttributeError):
-            message = exc.reason
+            message = body.strip()[:300] or exc.reason
+        message = str(message).replace(api_key, "[redacted]")
         raise RuntimeError(f"Nutaraline API gagal ({exc.code}): {message}") from exc
     except URLError as exc:
         raise RuntimeError(f"Tidak dapat menghubungi Nutaraline API: {exc.reason}") from exc
 
     choices = result.get("choices") or []
+    if choices and choices[0].get("finish_reason") == "length":
+        raise RuntimeError("Respons Nutaraline terpotong karena batas max_tokens.")
     text = choices[0].get("message", {}).get("content") if choices else None
     if not isinstance(text, str) or not text:
         raise RuntimeError("Respons Nutaraline tidak berisi teks.")

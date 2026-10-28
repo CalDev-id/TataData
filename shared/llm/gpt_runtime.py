@@ -31,7 +31,7 @@ def generate_response(system_prompt: str, user_prompt: str) -> str:
     )
 
     try:
-        with urlopen(request, timeout=120) as response:
+        with urlopen(request, timeout=600) as response:
             result = json.load(response)
     except HTTPError as exc:
         try:

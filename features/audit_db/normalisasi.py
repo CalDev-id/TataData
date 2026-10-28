@@ -1,6 +1,4 @@
-from shared.llm import gpt_runtime
-
-async def audit_db():
+def normalisasi(ddl, runtime):
 
     system_prompt = r"""Anda adalah Senior Database Architect spesialis Normalisasi Database (1NF, 2NF, 3NF).
     Tugas Anda: menganalisis DDL (CREATE TABLE, boleh disertai CREATE VIEW) untuk menemukan pelanggaran normalisasi secara akurat, lalu memberikan opsi pemecahan tabel/kolom yang konkret. Solusi disusun sebagai OPSI, bukan keputusan final; keputusan menunggu konfirmasi developer.
@@ -134,13 +132,4 @@ async def audit_db():
 
     """.strip()
 
-    response = gpt_runtime.generate_response(system_prompt, user_prompt)
-
-    if response:
-        job_authorities = response.strip()
-        job_authorities = job_authorities.replace("- ", "• ")
-        job_authorities = job_authorities.replace("'", "").replace("[", "").replace("]", "")
-
-        return job_authorities
-    else:
-        return "Tidak ada respons dari AI."
+    return runtime.generate_response(system_prompt, user_prompt + "\nDDL MySQL:\n" + ddl)
