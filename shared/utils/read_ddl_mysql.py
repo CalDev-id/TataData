@@ -49,7 +49,7 @@ def _column_count(statement):
             part = []
         else:
             part.append(char)
-    return sum(bool(re.match(r"^(?!PRIMARY\b|FOREIGN\b|UNIQUE\b|KEY\b|INDEX\b|CONSTRAINT\b|CHECK\b)[`\w]+\s+", column, re.I)) for column in columns)
+    return sum(bool(re.match(r'^(?!PRIMARY\b|FOREIGN\b|UNIQUE\b|KEY\b|INDEX\b|CONSTRAINT\b|CHECK\b|EXCLUDE\b)(?:`[^`]+`|"(?:[^"]|"")+"|\w+)\s+', column, re.I)) for column in columns)
 
 
 def read_ddl(content):

@@ -1,4 +1,4 @@
-def normalisasi(ddl, runtime):
+def normalisasi(ddl, runtime, database_type="mysql"):
 
     system_prompt = r"""Anda adalah Senior Database Architect spesialis Normalisasi Database (1NF, 2NF, 3NF).
     Tugas Anda: menganalisis DDL (CREATE TABLE, boleh disertai CREATE VIEW) untuk menemukan pelanggaran normalisasi secara akurat, lalu memberikan opsi pemecahan tabel/kolom yang konkret. Solusi disusun sebagai OPSI, bukan keputusan final; keputusan menunggu konfirmasi developer.
@@ -128,8 +128,16 @@ def normalisasi(ddl, runtime):
     Catatan format: "Tahap Normalisasi" diisi TEPAT SATU nilai (1NF, 2NF, atau 3NF), dan "Tabel Baru Usulan" diisi satu string (jangan menulis tanda "|" pemisah pilihan di output).
     """
 
-    user_prompt ="""
+    user_prompt = (
+        f"Jenis database: {database_type}. Semua opsi SQL dan tipe data usulan "
+        "harus sesuai dialek ini."
+    )
+    if database_type == "postgresql":
+        user_prompt += (
+            " Gunakan UUID, TIMESTAMPTZ, NUMERIC, tipe ENUM kustom atau CHECK, "
+            "dan sintaks PostgreSQL; jangan gunakan AUTO_INCREMENT, UNSIGNED, "
+            "TINYINT, atau backtick. Contoh tipe MySQL dalam instruksi sistem "
+            "hanya ilustrasi konsep normalisasi."
+        )
 
-    """.strip()
-
-    return runtime.generate_response(system_prompt, user_prompt + "\nDDL MySQL:\n" + ddl)
+    return runtime.generate_response(system_prompt, user_prompt + f"\nDDL {database_type}:\n" + ddl)

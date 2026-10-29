@@ -6,7 +6,7 @@
   <title>Standarisasi Database | Kementerian Sekretariat Negara</title>
   <link rel="icon" type="image/png" href="/static/logo-setneg.png">
   <link rel="stylesheet" href="/static/styles.css?v=41">
-  <script src="/static/app.js?v=55" defer></script>
+  <script src="/static/app.js?v=56" defer></script>
 </head>
 <body>
   <div class="page-shell">
@@ -40,7 +40,7 @@
       <section class="intro" aria-labelledby="pageTitle">
         <p class="eyebrow">Standarisasi database</p>
         <h1 id="pageTitle">Audit &amp; Normalisasi Database</h1>
-        <p class="intro-copy">Unggah DDL MySQL untuk meninjau kesesuaian struktur, ketergantungan data, dan relasi antartabel. Hasil kedua analisis disajikan dalam satu laporan.</p>
+        <p class="intro-copy">Unggah DDL MySQL atau PostgreSQL untuk meninjau kesesuaian struktur, ketergantungan data, dan relasi antartabel. Hasil kedua analisis disajikan dalam satu laporan.</p>
         <div class="steps" aria-label="Tahapan audit">
           <div class="step"><span class="step-number">01</span><span>Unggah file SQL DDL</span></div>
           <div class="step"><span class="step-number">02</span><span>Audit dan normalisasi berjalan bersama</span></div>
@@ -53,12 +53,17 @@
         <h2 id="uploadTitle">Unggah berkas</h2>
         <p class="card-copy">Pilih file skema database yang ingin dianalisis.</p>
         <form id="uploadForm">
+          <label class="field-label" for="database_type">Jenis database</label>
+          <select id="database_type" class="model-select" name="database_type">
+            <option value="mysql" selected>MySQL</option>
+            <option value="postgresql">PostgreSQL</option>
+          </select>
           <label class="field-label" for="model">Model analisis</label>
           <select id="model" class="model-select" name="model">
             <option value="gpt_setneg" selected>Setneg GPT</option>
             <option value="nutaraline">Nutaraline · DeepSeek V4.1 Flash 1017 LoRA</option>
           </select>
-          <label class="field-label" for="file">File DDL MySQL</label>
+          <label class="field-label" for="file">File DDL</label>
           <div class="file-picker">
             <input id="file" class="file-input" name="file" type="file" accept=".sql,.ddl" required>
             <label class="upload-area" for="file">

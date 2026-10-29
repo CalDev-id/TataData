@@ -6,20 +6,25 @@ from shared.llm import gpt_runtime, nutaraline_runtime
 from shared.utils.llm_results import (
     AUDIT_KEYS, NORMALIZATION_KEYS, audit_findings, normalization_findings, parse_rows,
 )
-from shared.utils.read_ddl import read_ddl
+from shared.utils.read_ddl_mysql import read_ddl as read_ddl_mysql
+from shared.utils.read_ddl_postgresql import read_ddl as read_ddl_postgresql
+from shared.utils.read_playbook import read_playbook
 
 
 RUNTIMES = {"gpt_setneg": gpt_runtime, "nutaraline": nutaraline_runtime}
+DDL_READERS = {"mysql": read_ddl_mysql, "postgresql": read_ddl_postgresql}
 
 
-def prepare_audit_db(content):
+def prepare_audit_db(content, database_type="mysql"):
     # Proses 1: baca file DDL dan kelompokkan per tabel.
-    prepared = read_ddl(content)
+    prepared = DDL_READERS[database_type](content)
+    prepared["database_type"] = database_type
 
     # Proses 2: buat batch Audit; tiap batch memuat maksimal 3 tabel atau sekitar 20.000 karakter.
     table_groups = prepared.pop("table_groups")
     global_statements = prepared.pop("global_statements")
-    prepared["batches"] = _make_batches(table_groups, global_statements)
+    context_statements = prepared.pop("context_statements", [])
+    prepared["batches"] = _make_batches(table_groups, global_statements, context_statements)
     return prepared
 
 
@@ -38,13 +43,14 @@ def pipeline_audit_db(
         if start_normalization:
             normalization_task = workers.submit(
                 run_normalization, prepared["ddl"], model, update_status, prepared["database_name"],
+                prepared["database_type"],
             )
         audit_task.result()
         if normalization_task:
             normalization_task.result()
 
 
-def _make_batches(table_groups, global_statements):
+def _make_batches(table_groups, global_statements, context_statements=()):
     batches = []
     current = []
     current_size = 0
@@ -58,6 +64,8 @@ def _make_batches(table_groups, global_statements):
         current_size += len(group)
     if current:
         batches.append("\n".join(current))
+    if context_statements:
+        batches = ["\n".join([*context_statements, batch]) for batch in batches]
     if batches and global_statements:
         batches[0] = "\n".join(global_statements + [batches[0]])
     return batches
@@ -65,13 +73,17 @@ def _make_batches(table_groups, global_statements):
 
 def _process_audit_batches(model, prepared, update_status, completed_batches, finding_count):
     # Saat retry, mulai dari batch yang gagal; temuan batch sebelumnya tetap dipakai.
+    playbook_text = None
     for index in range(completed_batches, len(prepared["batches"])):
         batch = index + 1
         update_status("audit_batch_started", batch=batch)
         try:
+            if playbook_text is None:
+                playbook_text = read_playbook()
             response = audit_db(
                 prepared["batches"][index], prepared["database_name"],
                 prepared["table_names"], index == 0, RUNTIMES[model],
+                prepared["database_type"], playbook_text,
             )
             rows = parse_rows(response, AUDIT_KEYS)
         except Exception as exc:
@@ -83,10 +95,10 @@ def _process_audit_batches(model, prepared, update_status, completed_batches, fi
     update_status("audit_completed")
 
 
-def run_normalization(ddl, model, update_status, database_name="-"):
+def run_normalization(ddl, model, update_status, database_name="-", database_type="mysql"):
     update_status("normalization_started")
     try:
-        response = normalisasi(ddl, RUNTIMES[model])
+        response = normalisasi(ddl, RUNTIMES[model], database_type)
         findings = normalization_findings(parse_rows(response, NORMALIZATION_KEYS), database_name)
     except Exception as exc:
         update_status("normalization_failed", error=str(exc))

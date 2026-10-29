@@ -131,7 +131,7 @@ def _retry_normalization_job(job_id):
 
     run_normalization(
         job["prepared"]["ddl"], job["normalization_model"], update_status,
-        job["prepared"]["database_name"],
+        job["prepared"]["database_name"], job["prepared"]["database_type"],
     )
 
 
@@ -153,18 +153,33 @@ def _status(job):
 
 
 @router.post("/api/v1/audit/spreadsheet")
-async def upload_audit(background_tasks: BackgroundTasks, file: UploadFile = File(...), model: str = Form(...)):
+async def upload_audit(
+    background_tasks: BackgroundTasks, file: UploadFile = File(...),
+    model: str = Form(...), database_type: str = Form("mysql"),
+):
     if model not in RUNTIMES:
         raise HTTPException(422, "Model analisis tidak tersedia.")
+    if database_type not in {"mysql", "postgresql"}:
+        raise HTTPException(422, "Jenis database harus MySQL atau PostgreSQL.")
     filename = Path(file.filename or "").name
     if Path(filename).suffix.lower() not in {".sql", ".ddl"}:
         raise HTTPException(422, "Unggah file .sql atau .ddl.")
     try:
-        prepared = prepare_audit_db(await file.read())
+        prepared = prepare_audit_db(await file.read(), database_type)
     except UnicodeDecodeError as exc:
         raise HTTPException(422, "File harus menggunakan encoding UTF-8.") from exc
     if not prepared["table_count"]:
-        raise HTTPException(422, "File harus berisi CREATE TABLE MySQL.")
+        label = "MySQL" if database_type == "mysql" else "PostgreSQL"
+        raise HTTPException(422, f"File harus berisi CREATE TABLE {label}.")
+    if prepared["database_name"] == "-":
+        if database_type == "postgresql":
+            hint = (
+                "Tambahkan '-- Database: nama_database' di awal file DDL PostgreSQL. "
+                "Nama schema bukan nama database."
+            )
+        else:
+            hint = "Sertakan perintah CREATE DATABASE atau USE di file DDL MySQL."
+        raise HTTPException(422, f"Nama database tidak ditemukan. {hint} Unggah ulang file.")
 
     job_id = uuid4().hex
     normalization_id = uuid4().hex
