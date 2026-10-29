@@ -53,12 +53,17 @@
         <h2 id="uploadTitle">Unggah berkas</h2>
         <p class="card-copy">Pilih file skema database yang ingin dianalisis.</p>
         <form id="uploadForm">
+          <label class="field-label" for="databaseType">Jenis database</label>
+          <select id="databaseType" class="model-select" name="database_type">
+            <option value="mysql" selected>MySQL</option>
+            <option value="postgresql">PostgreSQL</option>
+          </select>
           <label class="field-label" for="model">Model analisis</label>
           <select id="model" class="model-select" name="model">
             <option value="gpt_setneg" selected>Setneg GPT</option>
             <option value="nutaraline">Nutaraline · DeepSeek V4.1 Flash 1017 LoRA</option>
           </select>
-          <label class="field-label" for="file">File DDL MySQL</label>
+          <label class="field-label" for="file">File DDL</label>
           <div class="file-picker">
             <input id="file" class="file-input" name="file" type="file" accept=".sql,.ddl" required>
             <label class="upload-area" for="file">

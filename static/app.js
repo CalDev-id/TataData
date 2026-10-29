@@ -2,6 +2,7 @@ const elements = {
   form: document.getElementById("uploadForm"),
   fileInput: document.getElementById("file"),
   modelSelect: document.getElementById("model"),
+  databaseTypeSelect: document.getElementById("databaseType"),
   fileName: document.getElementById("fileName"),
   filePrompt: document.getElementById("filePrompt"),
   fileAction: document.getElementById("fileAction"),
@@ -217,6 +218,7 @@ function saveWorkflowSession() {
   sessionStorage.setItem(WORKFLOW_SESSION_KEY, JSON.stringify({
     auditJobId,
     model: elements.modelSelect.value,
+    databaseType: elements.databaseTypeSelect.value,
     feature: state.activeFeature,
     resultSheet: state.activeResultSheet,
     dictionarySheet: state.activeDictionarySheet,
@@ -820,6 +822,7 @@ function showProcessing() {
   elements.submitButton.disabled = true;
   elements.fileInput.disabled = true;
   elements.modelSelect.disabled = true;
+  elements.databaseTypeSelect.disabled = true;
   elements.progressBox.hidden = false;
   elements.downloadLink.hidden = true;
   elements.nextProcessButton.hidden = true;
@@ -832,6 +835,7 @@ function showRetry() {
   elements.submitButton.disabled = false;
   elements.fileInput.disabled = false;
   elements.modelSelect.disabled = false;
+  elements.databaseTypeSelect.disabled = false;
   elements.progressBox.hidden = true;
   if (!["queued", "running"].includes(state.normalizationStatus)) stopElapsed();
 }
@@ -1014,6 +1018,7 @@ function finishAudit(job) {
   elements.downloadLink.hidden = true;
   elements.fileInput.disabled = false;
   elements.modelSelect.disabled = false;
+  elements.databaseTypeSelect.disabled = false;
   saveHandoff(job);
   sessionStorage.setItem(COMPLETED_AUDIT_KEY, `/api/v1/audit/spreadsheet/${job.job_id}`);
 }
@@ -2042,6 +2047,7 @@ elements.fileInput.addEventListener("change", () => {
   clearHandoff();
 });
 elements.modelSelect.addEventListener("change", saveWorkflowSession);
+elements.databaseTypeSelect.addEventListener("change", saveWorkflowSession);
 
 elements.nextProcessButton.addEventListener("click", async () => {
   elements.nextProcessButton.disabled = true;
@@ -2120,6 +2126,9 @@ if (pendingUrl) {
     updateDictionaryElapsed();
     if (["gpt_setneg", "nutaraline"].includes(state.savedWorkflow.model)) {
       elements.modelSelect.value = state.savedWorkflow.model;
+    }
+    if (["mysql", "postgresql"].includes(state.savedWorkflow.databaseType)) {
+      elements.databaseTypeSelect.value = state.savedWorkflow.databaseType;
     }
   } else {
     sessionStorage.removeItem(WORKFLOW_SESSION_KEY);

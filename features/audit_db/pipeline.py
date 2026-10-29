@@ -1,20 +1,23 @@
 from concurrent.futures import ThreadPoolExecutor
 
-from features.audit_db.audit import audit_db
-from features.audit_db.normalisasi import normalisasi
+from features.audit_db.audit import audit_db, audit_postgresql_db
+from features.audit_db.normalisasi import normalisasi, normalisasi_postgresql
 from shared.llm import gpt_runtime, nutaraline_runtime
 from shared.utils.llm_results import (
     AUDIT_KEYS, NORMALIZATION_KEYS, audit_findings, normalization_findings, parse_rows,
 )
-from shared.utils.read_ddl import read_ddl
+from shared.utils.read_mysql_ddl import read_ddl as read_mysql_ddl
+from shared.utils.read_postgresql_ddl import read_ddl as read_postgresql_ddl
 
 
 RUNTIMES = {"gpt_setneg": gpt_runtime, "nutaraline": nutaraline_runtime}
 
 
-def prepare_audit_db(content):
+def prepare_audit_db(content, database_type="mysql"):
     # Proses 1: baca file DDL dan kelompokkan per tabel.
-    prepared = read_ddl(content)
+    reader = read_postgresql_ddl if database_type == "postgresql" else read_mysql_ddl
+    prepared = reader(content)
+    prepared["database_type"] = database_type
 
     # Proses 2: buat batch Audit; tiap batch memuat maksimal 3 tabel atau sekitar 20.000 karakter.
     table_groups = prepared.pop("table_groups")
@@ -37,7 +40,8 @@ def pipeline_audit_db(
         normalization_task = None
         if start_normalization:
             normalization_task = workers.submit(
-                run_normalization, prepared["ddl"], model, update_status, prepared["database_name"],
+                run_normalization, prepared["ddl"], model, update_status,
+                prepared["database_name"], prepared["database_type"],
             )
         audit_task.result()
         if normalization_task:
@@ -69,11 +73,15 @@ def _process_audit_batches(model, prepared, update_status, completed_batches, fi
         batch = index + 1
         update_status("audit_batch_started", batch=batch)
         try:
-            response = audit_db(
+            audit_function = audit_postgresql_db if prepared["database_type"] == "postgresql" else audit_db
+            response = audit_function(
                 prepared["batches"][index], prepared["database_name"],
                 prepared["table_names"], index == 0, RUNTIMES[model],
             )
             rows = parse_rows(response, AUDIT_KEYS)
+            if prepared["database_type"] == "postgresql" and prepared["database_name"] == "-":
+                for row in rows:
+                    row["Nama Database"] = "-"
         except Exception as exc:
             update_status("audit_batch_failed", batch=batch, error=str(exc))
             return
@@ -83,11 +91,16 @@ def _process_audit_batches(model, prepared, update_status, completed_batches, fi
     update_status("audit_completed")
 
 
-def run_normalization(ddl, model, update_status, database_name="-"):
+def run_normalization(ddl, model, update_status, database_name="-", database_type="mysql"):
     update_status("normalization_started")
     try:
-        response = normalisasi(ddl, RUNTIMES[model])
-        findings = normalization_findings(parse_rows(response, NORMALIZATION_KEYS), database_name)
+        normalization_function = normalisasi_postgresql if database_type == "postgresql" else normalisasi
+        response = normalization_function(ddl, RUNTIMES[model])
+        rows = parse_rows(response, NORMALIZATION_KEYS)
+        if database_type == "postgresql" and database_name == "-":
+            for row in rows:
+                row["Nama Database"] = "-"
+        findings = normalization_findings(rows, database_name)
     except Exception as exc:
         update_status("normalization_failed", error=str(exc))
         return
