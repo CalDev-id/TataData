@@ -7,6 +7,7 @@ TABLE_RE = re.compile(r"\bCREATE\s+(?:TEMPORARY\s+)?TABLE\s+(?:IF\s+NOT\s+EXISTS
 ALTER_RE = re.compile(r"\bALTER\s+TABLE\s+(`?\w+`?(?:\.`?\w+`?)?)", re.I)
 INDEX_RE = re.compile(r"\bCREATE\s+(?:(?:UNIQUE|FULLTEXT|SPATIAL)\s+)?INDEX\s+`?\w+`?\s+ON\s+(`?\w+`?(?:\.`?\w+`?)?)", re.I)
 DATABASE_RE = re.compile(r"\b(?:USE|CREATE\s+DATABASE(?:\s+IF\s+NOT\s+EXISTS)?)\s+`?(\w+)`?", re.I)
+HEADER_DATABASE_RE = re.compile(r"(?m)^[ \t]*--[ \t]+`?(\w+)`?\.`?\w+`?[ \t]+definition\b", re.I)
 
 
 def _table_name(identifier):
@@ -57,7 +58,8 @@ def read_ddl(content):
     global_statements = []
     ddl_statements = []
     table_names = []
-    database_name = "-"
+    header = HEADER_DATABASE_RE.search(ddl)
+    database_name = header.group(1) if header else "-"
     column_count = 0
     for statement in sqlparse.split(ddl):
         classified = sqlparse.format(statement, strip_comments=True).lstrip()
@@ -67,6 +69,8 @@ def read_ddl(content):
         table_match = TABLE_RE.match(classified)
         if table_match:
             ddl_statements.append(statement)
+            if database_name == "-" and "." in table_match.group(1):
+                database_name = table_match.group(1).split(".", 1)[0].strip("`")
             name = _table_name(table_match.group(1))
             if name not in groups:
                 groups[name] = []

@@ -143,7 +143,8 @@ const statusJobId = new URLSearchParams(location.search).get("job_id");
 const statusUrlFromUrl = JOB_ID_PATTERN.test(statusJobId || "")
   ? `/api/v1/audit/spreadsheet/${statusJobId}`
   : null;
-const resetWorkflowOnLoad = globalThis.__resetWorkflowOnLoad === true;
+const resetWorkflowOnLoad = globalThis.__resetWorkflowOnLoad === true
+  || globalThis.performance?.getEntriesByType("navigation")[0]?.type === "reload";
 
 function createDictionaryStages() {
   return Object.fromEntries(DICTIONARY_STAGE_NAMES.map((name) => [name, {

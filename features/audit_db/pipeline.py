@@ -36,7 +36,9 @@ def pipeline_audit_db(
         )
         normalization_task = None
         if start_normalization:
-            normalization_task = workers.submit(run_normalization, prepared["ddl"], model, update_status)
+            normalization_task = workers.submit(
+                run_normalization, prepared["ddl"], model, update_status, prepared["database_name"],
+            )
         audit_task.result()
         if normalization_task:
             normalization_task.result()
@@ -75,17 +77,17 @@ def _process_audit_batches(model, prepared, update_status, completed_batches, fi
         except Exception as exc:
             update_status("audit_batch_failed", batch=batch, error=str(exc))
             return
-        findings = audit_findings(rows, finding_count + 1)
+        findings = audit_findings(rows, finding_count + 1, prepared["database_name"])
         finding_count += len(findings)
         update_status("audit_batch_completed", batch=batch, findings=findings)
     update_status("audit_completed")
 
 
-def run_normalization(ddl, model, update_status):
+def run_normalization(ddl, model, update_status, database_name="-"):
     update_status("normalization_started")
     try:
         response = normalisasi(ddl, RUNTIMES[model])
-        findings = normalization_findings(parse_rows(response, NORMALIZATION_KEYS))
+        findings = normalization_findings(parse_rows(response, NORMALIZATION_KEYS), database_name)
     except Exception as exc:
         update_status("normalization_failed", error=str(exc))
         return

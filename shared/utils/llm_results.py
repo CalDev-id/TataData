@@ -36,10 +36,15 @@ def parse_rows(response, required_keys):
     return rows
 
 
-def audit_findings(rows, first_number):
+def _database_name(row, database_name):
+    name = row["Nama Database"]
+    return database_name if database_name != "-" and name.strip() in {"", "-"} else name
+
+
+def audit_findings(rows, first_number, database_name="-"):
     return [{
         "no": first_number + index,
-        "nama_database": row["Nama Database"],
+        "nama_database": _database_name(row, database_name),
         "nama_tabel": row["Nama Tabel"],
         "objek_temuan": row["Objek Temuan"],
         "aturan_playbook": row["Aturan Playbook/UU"],
@@ -51,7 +56,7 @@ def audit_findings(rows, first_number):
     } for index, row in enumerate(rows)]
 
 
-def normalization_findings(rows):
+def normalization_findings(rows, database_name="-"):
     findings = []
     for index, row in enumerate(rows, 1):
         # Kolom khusus Normalisasi ditaruh di Catatan agar cocok dengan tabel dan Excel.
@@ -62,7 +67,7 @@ def normalization_findings(rows):
         ]
         findings.append({
             "no": index,
-            "nama_database": row["Nama Database"],
+            "nama_database": _database_name(row, database_name),
             "nama_tabel": row["Nama Tabel"],
             "objek_temuan": row["Objek Temuan"],
             "aturan_playbook": row["Tahap Normalisasi"],

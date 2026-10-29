@@ -129,7 +129,10 @@ def _retry_normalization_job(job_id):
     def update_status(change, **details):
         _update_job(job, change, **details)
 
-    run_normalization(job["prepared"]["ddl"], job["normalization_model"], update_status)
+    run_normalization(
+        job["prepared"]["ddl"], job["normalization_model"], update_status,
+        job["prepared"]["database_name"],
+    )
 
 
 def _status(job):
